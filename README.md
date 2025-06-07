@@ -1,3 +1,7 @@
+# My Highlights
+
+This is a web app that allows you to keep track of your highlights (achievements, milestones, deliveries, etc.) throughout the year.
+
 # Development
 
 Your new bare-bones project includes minimal organization with a single `main.rs` file and a few assets.
