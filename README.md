@@ -1,6 +1,7 @@
 # My Highlights
 
 This is a web app that allows you to keep track of your highlights (achievements, milestones, deliveries, etc.) throughout the year.
+It is written in [Rust](https://www.rust-lang.org/) using the [Dioxus](https://dioxuslabs.com/) framework.
 
 # Development
 
