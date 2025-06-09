@@ -1,7 +1,8 @@
+use std::vec;
+
 use dioxus::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use indexmap::IndexMap;
-use serde_json;
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -12,45 +13,29 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let data = String::from(
-        r##"[
-        {
-            "period": "January 2025",
-            "category": "Release Management",
-            "description": "Managed the release of version 1.0, ensuring all features were tested and documented."
-        },
-        {
-            "period": "January 2025",
-            "category": "Configuration Management",
-            "description": "Developed new features for the application, including user authentication and profile management."
-        },
-        {
-            "period": "January 2025",
-            "category": "Control Plane",
-            "description": "Start of requirements gathering."
-        },
-        {
-            "period": "February 2025",
-            "category": "Configuration Management",
-            "description": "Started study on AC3."
-        },
-        {
-            "period": "February 2025",
-            "category": "Release Management",
-            "description": "Managed the release of version 1.1, ensuring all features were tested and documented."
-        },
-        {
-            "period": "February 2025",
-            "category": "Configuration Management",
-            "description": "Creation of AC3 lib prototype."
-        }
-    ]"##
-    );
 
-    let highlights: Vec<StoredHighlight> = serde_json::from_str(&data).unwrap_or_else(|_| {
-        panic!("Failed to parse highlights data");
-    });
-    let highlight_groups: Vec<HighlightGroup> = highlights
+    let mut response: Signal<Vec<StoredHighlight>> = use_signal(|| vec![]);
+
+    rsx! {
+        document::Link { rel: "icon", href: FAVICON }
+        document::Link { rel: "stylesheet", href: MAIN_CSS }
+        button {
+            onclick: move |_| async move {
+                let data = data_server().await.unwrap_or_else(|_| {
+                    panic!("Failed to fetch highlights data");
+                });
+                response.set(data);
+            },
+            "Load Highlights"
+        }
+        Highlights { stored_highlights: response.read().clone() }
+    }
+}
+
+#[component]
+fn Highlights(stored_highlights: Vec<StoredHighlight>) -> Element {
+
+    let highlight_groups: Vec<HighlightGroup> = stored_highlights
         .into_iter()
         .fold(IndexMap::new(), |mut acc, highlight| {
             acc.entry(highlight.period.clone())
@@ -62,15 +47,6 @@ fn App() -> Element {
         .map(|(period, highlights)| HighlightGroup::new(&period, highlights))
         .collect();
 
-    rsx! {
-        document::Link { rel: "icon", href: FAVICON }
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
-        Highlights { highlight_groups }
-    }
-}
-
-#[component]
-fn Highlights(highlight_groups: Vec<HighlightGroup>) -> Element {
     rsx! {
         div { id: "highlights",
             h1 { class: "highlights-title", "My Highlights" }
@@ -147,9 +123,30 @@ impl HighlightGroup {
     }
 }
 
-#[derive(Props, PartialEq, Clone, Deserialize, Debug)]
-struct StoredHighlight {
+#[derive(Props, PartialEq, Clone, Serialize, Deserialize, Debug)]
+pub struct StoredHighlight {
     category: String,
     description: String,
     period: Period,
+}
+
+#[server(DataServer)]
+async fn data_server() -> Result<Vec<StoredHighlight>, ServerFnError> {
+    // Simulate fetching data from a database
+    let data = r#"
+    [
+        {"period": "January 2025", "category": "Release Management", "description": "Managed the release of version 1.0, ensuring all features were tested and documented."},
+        {"period": "January 2025", "category": "Configuration Management", "description": "Developed new features for the application, including user authentication and profile management."},
+        {"period": "January 2025", "category": "Control Plane", "description": "Start of requirements gathering."},
+        {"period": "February 2025", "category": "Configuration Management", "description": "Started study on AC3."},
+        {"period": "February 2025", "category": "Release Management", "description": "Managed the release of version 1.1, ensuring all features were tested and documented."},
+        {"period": "February 2025", "category": "Configuration Management", "description": "Creation of AC3 lib prototype."}
+    ]
+    "#;
+
+    let highlights: Vec<StoredHighlight> = serde_json::from_str(data).expect("Failed to parse highlights data");
+    if highlights.is_empty() {
+        return Err(ServerFnError::new("No highlights found"));
+    }
+    Ok(highlights)
 }
